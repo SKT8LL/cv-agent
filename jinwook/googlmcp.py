@@ -176,15 +176,14 @@ class GoogleDocsMCPServer:
                                 "type": "string",
                                 "description": "면접 준비 자료 작성을 위한 프롬프트"
                             },
-                            "cover_letter_title": {
+                            "interview_prep_prompt": {
                                 "type": "string",
-                                "description": "자기소개서 문서 제목 (선택사항)",
-                                "default": "작성된 자기소개서"
+                                "description": "면접 준비 자료 작성을 위한 프롬프트"
                             },
-                            "interview_title": {
+                            "doc_title": {
                                 "type": "string",
-                                "description": "면접 준비 자료 문서 제목 (선택사항)",
-                                "default": "면접 준비 자료"
+                                "description": "문서 제목 (선택사항)",
+                                "default": "자기소개서 및 면접 준비 자료"
                             }
                         },
                         "required": ["form_template", "cover_letter_prompt", "interview_prep_prompt"]
@@ -202,8 +201,7 @@ class GoogleDocsMCPServer:
                     arguments["form_template"],
                     arguments["cover_letter_prompt"],
                     arguments["interview_prep_prompt"],
-                    arguments.get("cover_letter_title", "작성된 자기소개서"),
-                    arguments.get("interview_title", "면접 준비 자료")
+                    arguments.get("doc_title", "자기소개서 및 면접 준비 자료")
                 )
             else:
                 raise ValueError(f"Unknown tool: {name}")
@@ -225,30 +223,34 @@ class GoogleDocsMCPServer:
             )]
     
     async def _handle_create_documents(self, form_template: str, cover_letter_prompt: str, 
-                                      interview_prep_prompt: str, cover_letter_title: str,
-                                      interview_title: str):
-        """자기소개서 + 면접 준비 자료 생성 핸들러"""
+                                      interview_prep_prompt: str, doc_title: str):
+        """자기소개서 + 면접 준비 자료 생성 핸들러 (단일 문서)"""
         try:
             # 1단계: 자기소개서 생성
             cover_letter = self._fill_form_with_ai(form_template, cover_letter_prompt)
-            doc_id = self._create_google_doc(cover_letter_title, cover_letter)
             
             # 2단계: 면접 준비 자료 생성
             interview_prep = self._generate_interview_prep(cover_letter, interview_prep_prompt)
-            interview_doc_id = self._create_google_doc(interview_title, interview_prep)
+            
+            # 3단계: 내용 통합
+            final_content = f"""[자기소개서]
+{cover_letter}
+
+==================================================
+
+[면접 대비 질문 리스트]
+{interview_prep}
+"""
+            # 4단계: Google Doc 생성
+            doc_id = self._create_google_doc(doc_title, final_content)
             
             result_text = f"""
 ✅ 문서 생성 완료!
 
-📄 자기소개서
-- 제목: {cover_letter_title}
+📄 통합 문서 (자기소개서 + 면접 질문)
+- 제목: {doc_title}
 - URL: https://docs.google.com/document/d/{doc_id}/edit
 - 문서 ID: {doc_id}
-
-📝 면접 준비 자료
-- 제목: {interview_title}
-- URL: https://docs.google.com/document/d/{interview_doc_id}/edit
-- 문서 ID: {interview_doc_id}
 """
             
             return [TextContent(
