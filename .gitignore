@@ -10,3 +10,7 @@ wheels/
 .venv
 .env
 
+# Credentials
+**/credentials.json
+**/token.pickle
+
